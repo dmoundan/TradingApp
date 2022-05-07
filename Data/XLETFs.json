@@ -1,0 +1,14 @@
+{ "XLETFs" : [
+                {"XLC" : "Communication Services"},
+                {"XLY" : "Consumer Discretionary"},
+                {"XLP" : "Consumer Staples"},
+                {"XLE" : "Energy"},
+                {"XLF" : "Financials"},
+                {"XLV" : "Health Care"},
+                {"XLI" : "Industrials"},
+                {"XLB" : "Materials"},
+                {"XLK" : "Technology"},
+                {"XLU" : "Utilities"},
+                {"XLRE" : "Real Estate"}
+              ]
+}
