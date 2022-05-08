@@ -74,11 +74,11 @@ class TargetsCls:
         self._pt=pt
         self._nqf=nqf
         self._mnqf=mnqf
-        self._startDate=datetime.datetime(sy, sm, sd)
+        self._startDate=datetime.datetime(sy, sm, sd).date()
         self._exset=set()
         for dt in excl:
             list1=dt.split("-")
-            edt=datetime.datetime(int(list1[2]), int(list1[0]), int(list1[1]))
+            edt=datetime.datetime(int(list1[2]), int(list1[0]), int(list1[1])).date()
             self._exset.add(edt)
 
     @property
@@ -107,6 +107,7 @@ class TargetsCls:
 
 def processTargetsFile():
     targetkeys=list()
+    datadict=dict()
     tf=dataLocation+targetsFile
     with open(tf,"r") as f:
         targets=json.load(f)
@@ -121,21 +122,50 @@ def processTargetsFile():
             sm=item[key]['SM']
             sd=item[key]['SD']
             excl=item[key]['Exclusions']
-    return(targetkeys)
+            tcls=TargetsCls(ib, pt, nqf, mnqf, sy, sm, sd, excl)
+            datadict[key]=tcls
+    return(targetkeys,datadict)
+
+def createSchedule(tcls):
+    schedule=dict({"Day":[],"Date":[], "AccountGoal":[], "DailyGoal":[],"CumTargetGoal":[]})
+    currDate=tcls.startDate
+    count=1
+    prev=tcls.ib
+    cumTargetGoal=0
+    for i in range(60):
+        dat=currDate+timedelta(days=i)
+        if dat.weekday() < 5:
+            temp1=tcls.ib*(pow((1+tcls.pt),float(count)))
+            temp11=round(temp1,2)
+            schedule["AccountGoal"].append(('%f' % temp11).rstrip('0').rstrip('.'))
+            temp2=temp11-prev
+            temp22=round(temp2,2)
+            schedule["DailyGoal"].append(('%f' % temp22).rstrip('0').rstrip('.'))
+            cumTargetGoal+=temp22
+            cumTargetGoal1=round(cumTargetGoal,2)
+            schedule["CumTargetGoal"].append(('%f' % cumTargetGoal1).rstrip('0').rstrip('.'))
+            prev=temp1
+            schedule["Day"].append(count)
+            count+=1
+            #st.write(f"date is :{dat.date()}")
+            schedule["Date"].append(dat) 
+    df=pd.DataFrame(schedule)
+    df.set_index("Day",inplace=True)
+    return(df)
 
 def main():
     #Parse Targets File
-    targetkeys=processTargetsFile()
+    (targetkeys,datadict)=processTargetsFile()
 
     #streamlit code
     st.set_page_config(layout="wide")
     with st.sidebar:
         st.header("Control Panel")
-        mode=st.selectbox('Operation Mode',["DataBase","Dashboard", "Dataframes","Daily","Calendar", "Charting","Schedule"])
+        mode=st.selectbox('Operation Mode',["Setup","Dashboard", "Dataframes","Daily","Calendar", "Charting","Schedule"])
 
-    if mode == "DataBase":
+    if mode == "Setup":
         st.header("Configuration")
-        op1=st.radio(f"Working with Target:", targetkeys)
+        st.session_state.selectedTarget=st.radio(f"Working with Target:", targetkeys)
         st.header("DataBase Operations")
         op1=st.radio(f"Working with DB {PersonalTransactionDB}", ("Display","Create","Update"))
         if op1 == "Create":
@@ -145,28 +175,7 @@ def main():
         elif op1 == "Display":
             st.write("Displaying")
     elif mode == "Schedule":
-        schedule=dict({"Day":[],"Date":[], "AccountGoal":[], "DailyGoal":[],"CumTargetGoal":[]})
-        currDate=datetime.datetime(startYear, startMonth, startDay)
-        count=1
-        prev=startBalance
-        cumTargetGoal=0
-        for i in range(60):
-            dat=currDate+timedelta(days=i)
-            if dat.weekday() < 5:
-                temp1=startBalance*(pow((1+targetPercentGoal),float(count)))
-                schedule["AccountGoal"].append(temp1)
-                temp2=temp1-prev
-                schedule["DailyGoal"].append(temp2)
-                cumTargetGoal+=temp2
-                schedule["CumTargetGoal"].append(cumTargetGoal)
-                prev=temp1
-                schedule["Day"].append(count)
-                count+=1
-                #st.write(f"date is :{dat.date()}")
-                schedule["Date"].append(dat.date()) 
-        df=pd.DataFrame(schedule)
-        df.set_index("Day",inplace=True)
-        st.dataframe(df)
+        st.dataframe(createSchedule(datadict[st.session_state.selectedTarget]))
 
 if __name__ == "__main__" or __name__ == "__tr_app__":
     # execute only if run as a script
