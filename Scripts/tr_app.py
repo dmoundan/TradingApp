@@ -22,38 +22,9 @@ from collections import deque
 import yfinance as yf
 
 
-def process_df(df):
-    list1=list()
-    for row in df.itertuples(index=False):
-        l1=row[5].split(" ")
-        l11=l1[0].split("/")
-        l12=l1[1].split(":")
-        dt1=datetime.datetime(int(l11[2]), int(l11[0]), int(l11[1]),int(l12[0]),int(l12[1]), int(l12[2]))
-        l2=row[6].split(" ")
-        l21=l2[0].split("/")
-        l22=l2[1].split(":")
-        dt2=datetime.datetime(int(l21[2]), int(l21[0]), int(l21[1]),int(l22[0]),int(l22[1]), int(l22[2]))
-        l3=l1[1].split(":")
-        if dt1 < dt2:
-            tp="Long"
-            starttime=row[5]
-            endtime=row[6]
-        else:
-            tp="Short"
-            starttime=row[6]
-            endtime=row[5]
-        tdict=dict({"Quantity":row[1],"Type":tp, "BuyPrice": row[2], "SellPrice": row[3], "StartTime": starttime, "EndTime":endtime, "Symbol":row[0]})            
-        list1.append(tdict)
-    result=pd.DataFrame(list1)   
-    return result
-
 
 ######Globals########
-startDay=3
-startMonth=5
-startYear=2022
-startBalance=1252.38
-targetPercentGoal=0.03
+
 
 #File/Location Related
 
@@ -101,7 +72,188 @@ class TargetsCls:
     def startDate(self):
         return self._startDate
 
+    @property
+    def exset(self):
+        return self._exset
 
+
+class ProcessTrades:
+
+    def __init__(self, df):
+        self._full_df=df
+        self._days_dict=dict()
+        self._daily_df=pd.DataFrame()
+        
+    @property
+    def daily_df(self):
+        return self._daily_df
+
+    def __separate_days(self):
+        for row in self._full_df.itertuples(index=False):
+            l1=row[4].split(" ")
+            tl=l1[0].replace("/","-")
+            l2=tl.split("-")
+            dt=datetime.datetime(int(l2[2]), int(l2[0]), int(l2[1]))
+            l3=l1[1].split(":")
+            if int(l3[0]) >= 17:  #Here we are considering transactions after 17:00:00 CST to be part of next day
+                dt1=dt.date()+datetime.timedelta(days=1)
+            else:
+                dt1=dt.date()
+            points=row[3]-row[2]
+            tdict=dict({"Quantity":[row[0]],"Type":[row[1]], "BuyPrice": [row[2]], "SellPrice": [row[3]], "StartTime": [row[4]], "EndTime":[row[5]], "Symbol":[row[6]], "Points":[points]})            
+
+            if dt1 in self._days_dict:
+                points=row[3]-row[2]
+                tdict=dict({"Quantity":[row[0]],"Type":[row[1]], "BuyPrice": [row[2]], "SellPrice": [row[3]], "StartTime": [row[4]], "EndTime":[row[5]], "Symbol":[row[6]], "Points":[points]})            
+                self._days_dict[dt1]=self._days_dict[dt1].append(pd.DataFrame(tdict), ignore_index=False)
+            else:
+                self._days_dict[dt1]=pd.DataFrame(tdict)
+            tdict.clear()
+
+    def __validate(self,dt,tc):
+        contracts=0
+        points=0
+        winners=0
+        losers=0
+        longs=0
+        shorts=0
+        long_winners=0
+        short_winners=0
+        win_points=0
+        loss_points=0
+        largest_winner=0
+        largest_loser=0
+        w20s=0
+        fees=0
+        net=0
+        #fee=TradeFee
+        global point_value
+        for row in self._days_dict[dt].itertuples(index=False):
+            if "MNQ" in row[6]:
+                point_value=2.0
+                fees+=tc.mnqf
+            else:
+                point_value=20.0
+                fees+=tc.nqf
+            contracts+=1
+            starttime=row[4]
+            l1=starttime.split(" ")
+            tl=l1[0].replace("/","-")
+            l11=tl.split("-")
+            l12=l1[1].split(":")
+            st=datetime.datetime(int(l11[2]),int(l11[0]),int(l11[1]),int(l12[0]),int(l12[1]),int(l12[2]))
+            endtime=row[5]
+            l2=endtime.split(" ")
+            tl=l2[0].replace("/","-")
+            l21=tl.split("-")
+            l22=l2[1].split(":")
+            et=datetime.datetime(int(l21[2]),int(l21[0]),int(l21[1]),int(l22[0]),int(l22[1]),int(l22[2]))
+            if row[1] == "Long":
+                if "MNQ" in row[6]:
+                    net+=2.0*(row[3]-row[2])
+                else:
+                    net+=20.0*(row[3]-row[2])
+                longs+=1
+                points+= row[3]-row[2]
+                if row[3] > row[2]:
+                    if (et-st).total_seconds() >= 20:
+                        w20s+=1
+                    winners+=1
+                    long_winners+=1
+                    t1=row[3]-row[2]
+                    win_points+=t1
+                    if t1 > largest_winner:
+                        largest_winner=round(t1,2)
+                else:
+                    losers+=1
+                    t2=abs(row[3]-row[2])
+                    loss_points+=t2
+                    if t2 > largest_loser:
+                        largest_loser=round(t2,2)
+            else:
+                if "MNQ" in row[6]:
+                    net+=2.0*(row[3]-row[2])
+                else:
+                    net+=20.0*(row[3]-row[2])
+                shorts+=1
+                points+= row[3]-row[2]
+                if row[3] > row[2]:
+                    if (et-st).total_seconds() >= 20:
+                        w20s+=1
+                    winners+=1
+                    short_winners+=1
+                    t1=row[3]-row[2]
+                    win_points+=t1
+                    if t1 > largest_winner:
+                        largest_winner=round(t1,2)
+                else:
+                    losers+=1
+                    t2=abs(row[3]-row[2])
+                    loss_points+=t2
+                    if t2 > largest_loser:
+                        largest_loser=round(t2,2)
+        tdict=dict()
+        #if not full_df:
+        tdict["Date"]=[dt]
+        tdict["Trades"]=[contracts]
+        tdict["Winners"]=[winners]
+        tdict["Losers"]=[losers]
+        tdict["Win%"]= ('%f' % round((winners/contracts)*100,2)).rstrip('0').rstrip('.')
+        #tdict["Net"]=round(points*point_value-contracts*fee,2)
+        #tdict["Long"]=[longs]
+        #tdict["LongW"]=[long_winners]
+        #tdict["Short"]=[shorts]
+        #tdict["ShortW"]=[short_winners]
+        #tdict["Points"]=round(points,2)
+        tdict["Net"]=[ ('%f' % (net-fees)).rstrip('0').rstrip('.')]
+        tdict["Fees$"]=[ ('%f' % fees).rstrip('0').rstrip('.')]
+        tdict["NQNet"]=[ ('%f' % (points*20.0-contracts*tc.nqf)).rstrip('0').rstrip('.')]
+        tdict["NQFees$"]=[('%f' % (contracts*tc.nqf)).rstrip('0').rstrip('.')]
+        #tdict["Fees%"]=round(((contracts*fee)/(abs(points)*point_value))*100,2)
+        if winners > 0:
+            avg_winner=round(win_points/winners,2)
+        #    tdict["AWinP"]=[avg_winner]
+        if losers > 0:
+            avg_loser=round(loss_points/losers,2)
+        #    tdict["ALosP"]=[avg_loser]
+        #if winners > 0 and losers > 0:
+        #    tdict["Ri/Re"]=[round(avg_loser/avg_winner,2)]
+        #else:
+        #    tdict["Ri/Re"]=[0]
+        #tdict["LWinP"]=[largest_winner]
+        #tdict["LLosP"]=[largest_loser]
+        #tdict["Exp$"]=[round(points/contracts,2)*point_value]
+        tdict["Win20s"]=[w20s]
+        #tdict["WPoints"]=[win_points]
+        #tdict["LPoints"]=[loss_points]
+
+        if winners > 0:
+            tdict["Win20s%"]=[('%f' % round((w20s/winners)*100,2)).rstrip('0').rstrip('.')]
+        result_df=pd.DataFrame(tdict)
+        return result_df
+
+    def process_full_df(self, tc):
+        self.__separate_days()
+        count=0
+        count_list=list()
+        for key in self._days_dict.keys():
+            count+=1
+            count_list.append(count)
+            self._daily_df=self._daily_df.append(self.__validate(key,tc), ignore_index=True)
+        self._daily_df.sort_values(by=['Date'], ascending=True, inplace=True)
+        self._daily_df.reset_index(drop=True, inplace=True)
+        """
+        result_df["Count"]=count_list
+        result_df['CumNet']=result_df['Net'].cumsum()
+        result_df["CumDailyAvg"]=result_df['CumNet']/result_df['Count']
+        if self.platform == "personal":
+            result_df["DayROI"]=result_df['Net']
+            result_df["DayROI"]=result_df["DayROI"].apply(lambda x: round((x/InitialBalance)*100,2))
+            result_df["CumROI"]=result_df['Net'].cumsum()
+            result_df["CumROI"]=result_df["CumROI"].apply(lambda x: round((x/InitialBalance)*100,2))
+        full_result_df=self.__validate(datetime.datetime(2021,1,1),self.full_df,True)
+        return(result_df,full_result_df, days_dict)
+        """
 
 #Functions
 
@@ -134,7 +286,7 @@ def createSchedule(tcls):
     cumTargetGoal=0
     for i in range(60):
         dat=currDate+timedelta(days=i)
-        if dat.weekday() < 5:
+        if dat.weekday() < 5 and dat not in tcls.exset:
             temp1=tcls.ib*(pow((1+tcls.pt),float(count)))
             temp11=round(temp1,2)
             schedule["AccountGoal"].append(('%f' % temp11).rstrip('0').rstrip('.'))
@@ -153,6 +305,50 @@ def createSchedule(tcls):
     df.set_index("Day",inplace=True)
     return(df)
 
+def process_df(df):
+    list1=list()
+    for row in df.itertuples(index=False):
+        l1=row[5].split(" ")
+        l11=l1[0].split("/")
+        l12=l1[1].split(":")
+        dt1=datetime.datetime(int(l11[2]), int(l11[0]), int(l11[1]),int(l12[0]),int(l12[1]), int(l12[2]))
+        l2=row[6].split(" ")
+        l21=l2[0].split("/")
+        l22=l2[1].split(":")
+        dt2=datetime.datetime(int(l21[2]), int(l21[0]), int(l21[1]),int(l22[0]),int(l22[1]), int(l22[2]))
+        l3=l1[1].split(":")
+        if dt1 < dt2:
+            tp="Long"
+            starttime=row[5]
+            endtime=row[6]
+        else:
+            tp="Short"
+            starttime=row[6]
+            endtime=row[5]
+        tdict=dict({"Quantity":row[1],"Type":tp, "BuyPrice": row[2], "SellPrice": row[3], "StartTime": starttime, "EndTime":endtime, "Symbol":row[0]})            
+        list1.append(tdict)
+    result=pd.DataFrame(list1)   
+    return result
+
+def cuDB(ufiles, op):
+    processed_dfs=list()
+    for uploaded_file in ufiles:
+        raw_csv_pd=pd.read_csv(uploaded_file)
+        csv_pd_1=raw_csv_pd[columns_tst]
+        csv_pd_2=process_df(csv_pd_1)
+        processed_dfs.append(csv_pd_2)
+    full_df=pd.concat(processed_dfs)
+    full_df.reset_index(drop=True, inplace=True)
+    if op == "create":   
+        full_df.to_pickle(dbLocation+PersonalTransactionDB)
+    elif op == "update":
+        file=dbLocation+PersonalTransactionDB
+        current_df=pd.read_pickle(file)
+        os.remove(file)
+        final_df=pd.concat([current_df,full_df])
+        final_df.reset_index(drop=True, inplace=True)
+        final_df.to_pickle(file)
+
 def main():
     #Parse Targets File
     (targetkeys,datadict)=processTargetsFile()
@@ -169,13 +365,35 @@ def main():
         st.header("DataBase Operations")
         op1=st.radio(f"Working with DB {PersonalTransactionDB}", ("Display","Create","Update"))
         if op1 == "Create":
-            st.write("Creating")
+            file=dbLocation+PersonalTransactionDB
+            if os.path.exists(file):
+                os.remove(file)
+            uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
+            if uploaded_files:
+                cuDB(uploaded_files, "create")
         elif op1 == "Update":
-            st.write("Updating")
+            file=dbLocation+PersonalTransactionDB
+            if os.path.exists(file):
+                uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
+                if uploaded_files:
+                    cuDB(uploaded_files, "update")
         elif op1 == "Display":
-            st.write("Displaying")
+            file=dbLocation+PersonalTransactionDB
+            if os.path.exists(file):
+                full_df=pd.read_pickle(file)
+                st.dataframe(full_df)
+            else:
+                st.write(f"The file: {file} does not exist")
     elif mode == "Schedule":
         st.dataframe(createSchedule(datadict[st.session_state.selectedTarget]))
+    elif mode == "Daily":
+        file=dbLocation+PersonalTransactionDB
+        if os.path.exists(file):
+            full_df=pd.read_pickle(file)
+        pt=ProcessTrades(full_df)
+        pt.process_full_df(datadict[st.session_state.selectedTarget])
+        st.dataframe(pt.daily_df)
+
 
 if __name__ == "__main__" or __name__ == "__tr_app__":
     # execute only if run as a script
