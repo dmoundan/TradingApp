@@ -83,10 +83,97 @@ class ProcessTrades:
         self._full_df=df
         self._days_dict=dict()
         self._daily_df=pd.DataFrame()
+        self._summary_df=pd.DataFrame()
+
+    @property
+    def summary_df(self):
+        return self._summary_df
         
     @property
     def daily_df(self):
         return self._daily_df
+
+    def create_summary_df(self,tc):
+        fees=0
+        trades=0
+        net=0
+        longs=0
+        shorts=0
+        points=0
+        w20s=0
+        winners=0
+        losers=0
+        long_winners=0
+        short_winners=0
+        win_points=0
+        loss_points=0
+        largest_winner=0
+        largest_loser=0
+        for row in self._full_df.itertuples(index=False):
+            if "MNQ" in row[6]:
+                fees+=tc.mnqf
+            else:
+                fees+=tc.nqf    
+            trades+=1
+            st=self.__calctime(row[4])
+            et=self.__calctime(row[5])
+            if row[1] == "Long":
+                if "MNQ" in row[6]:
+                    net+=2.0*(row[3]-row[2])
+                else:
+                    net+=20.0*(row[3]-row[2])
+                longs+=1
+                points+= row[3]-row[2]
+                if row[3] > row[2]:
+                    if (et-st).total_seconds() >= 20:
+                        w20s+=1
+                    winners+=1
+                    long_winners+=1
+                    t1=row[3]-row[2]
+                    win_points+=t1
+                    if t1 > largest_winner:
+                        largest_winner=round(t1,2)
+                else:
+                    losers+=1
+                    t2=abs(row[3]-row[2])
+                    loss_points+=t2
+                    if t2 > largest_loser:
+                        largest_loser=round(t2,2)
+            else:
+                if "MNQ" in row[6]:
+                    net+=2.0*(row[3]-row[2])
+                else:
+                    net+=20.0*(row[3]-row[2])
+                shorts+=1
+                points+= row[3]-row[2]
+                if row[3] > row[2]:
+                    if (et-st).total_seconds() >= 20:
+                        w20s+=1
+                    winners+=1
+                    short_winners+=1
+                    t1=row[3]-row[2]
+                    win_points+=t1
+                    if t1 > largest_winner:
+                        largest_winner=round(t1,2)
+                else:
+                    losers+=1
+                    t2=abs(row[3]-row[2])
+                    loss_points+=t2
+                    if t2 > largest_loser:
+                        largest_loser=round(t2,2)
+        tdict=dict()
+        tdict["Trades"]=[trades]
+        tdict["Winners"]=[winners]
+        tdict["Losers"]=[losers]
+        tdict["Win%"]= ('%f' % round((winners/trades)*100,2)).rstrip('0').rstrip('.')
+        tdict["Net"]=[net-fees]
+        tdict["Fees$"]=[fees]
+        tdict["NQNet"]=[ ('%f' % (points*20.0-trades*tc.nqf)).rstrip('0').rstrip('.')]
+        tdict["NQFees$"]=[('%f' % (trades*tc.nqf)).rstrip('0').rstrip('.')]
+        tdict["Win20s"]=[w20s]
+        if winners > 0:
+            tdict["Win20s%"]=[('%f' % round((w20s/winners)*100,2)).rstrip('0').rstrip('.')]
+        self._summary_df=pd.DataFrame(tdict)
 
     def __separate_days(self):
         for row in self._full_df.itertuples(index=False):
@@ -109,6 +196,14 @@ class ProcessTrades:
             else:
                 self._days_dict[dt1]=pd.DataFrame(tdict)
             tdict.clear()
+
+    def __calctime(self, data):
+        l1=data.split(" ")
+        tl=l1[0].replace("/","-")
+        l11=tl.split("-")
+        l12=l1[1].split(":")
+        st=datetime.datetime(int(l11[2]),int(l11[0]),int(l11[1]),int(l12[0]),int(l12[1]),int(l12[2]))
+        return st
 
     def __validate(self,dt,tc):
         contracts=0
@@ -136,6 +231,8 @@ class ProcessTrades:
                 point_value=20.0
                 fees+=tc.nqf
             contracts+=1
+            st=self.__calctime(row[4])
+            """
             starttime=row[4]
             l1=starttime.split(" ")
             tl=l1[0].replace("/","-")
@@ -148,6 +245,8 @@ class ProcessTrades:
             l21=tl.split("-")
             l22=l2[1].split(":")
             et=datetime.datetime(int(l21[2]),int(l21[0]),int(l21[1]),int(l22[0]),int(l22[1]),int(l22[2]))
+            """
+            et=self.__calctime(row[5])
             if row[1] == "Long":
                 if "MNQ" in row[6]:
                     net+=2.0*(row[3]-row[2])
@@ -216,10 +315,10 @@ class ProcessTrades:
         if losers > 0:
             avg_loser=round(loss_points/losers,2)
         #    tdict["ALosP"]=[avg_loser]
-        #if winners > 0 and losers > 0:
-        #    tdict["Ri/Re"]=[round(avg_loser/avg_winner,2)]
-        #else:
-        #    tdict["Ri/Re"]=[0]
+        if winners > 0 and losers > 0:
+            tdict["Ri/Re"]=[round(avg_loser/avg_winner,2)]
+        else:
+            tdict["Ri/Re"]=[0]
         #tdict["LWinP"]=[largest_winner]
         #tdict["LLosP"]=[largest_loser]
         #tdict["Exp$"]=[round(points/contracts,2)*point_value]
@@ -392,7 +491,11 @@ def main():
             full_df=pd.read_pickle(file)
         pt=ProcessTrades(full_df)
         pt.process_full_df(datadict[st.session_state.selectedTarget])
+        st.subheader("Daily Dataframe")
         st.dataframe(pt.daily_df)
+        st.subheader("Summary Dataframe")
+        pt.create_summary_df(datadict[st.session_state.selectedTarget])
+        st.dataframe(pt.summary_df)
 
 
 if __name__ == "__main__" or __name__ == "__tr_app__":
