@@ -25,7 +25,6 @@ import yfinance as yf
 
 ######Globals########
 
-
 #File/Location Related
 
 PersonalTransactionDB="PersonalTranscation.pickle"
@@ -84,10 +83,20 @@ class ProcessTrades:
         self._days_dict=dict()
         self._daily_df=pd.DataFrame()
         self._summary_df=pd.DataFrame()
+        self._summary_df_2=pd.DataFrame()
+        self._summary_df_3=pd.DataFrame()
 
     @property
     def summary_df(self):
         return self._summary_df
+
+    @property
+    def summary_df_2(self):
+        return self._summary_df_2
+
+    @property
+    def summary_df_3(self):
+        return self._summary_df_3
         
     @property
     def daily_df(self):
@@ -170,10 +179,46 @@ class ProcessTrades:
         tdict["Fees$"]=[fees]
         tdict["NQNet"]=[ ('%f' % (points*20.0-trades*tc.nqf)).rstrip('0').rstrip('.')]
         tdict["NQFees$"]=[('%f' % (trades*tc.nqf)).rstrip('0').rstrip('.')]
+        
+        if winners > 0:
+            avg_winner=round(win_points/winners,2)
+        #    tdict["AWinP"]=[avg_winner]
+        if losers > 0:
+            avg_loser=round(loss_points/losers,2)
+        #    tdict["ALosP"]=[avg_loser]
+        if winners > 0 and losers > 0:
+            tdict["Ri/Re"]=[round(avg_loser/avg_winner,2)]
+        else:
+            tdict["Ri/Re"]=[0]
         tdict["Win20s"]=[w20s]
         if winners > 0:
             tdict["Win20s%"]=[('%f' % round((w20s/winners)*100,2)).rstrip('0').rstrip('.')]
+
+        tdict1=dict()
+        tdict1["AvgTr"]=[round(trades/len(self._days_dict),2)]
+        tdict1["AvgNet"]=[round((net-fees)/len(self._days_dict),2)]
+        tdict1["AvgFees"]=[round(fees/len(self._days_dict),2)]
+        tdict1["AvgNQNet"]=[ ('%f' % (round((points*20.0-trades*tc.nqf)/len(self._days_dict),2))).rstrip('0').rstrip('.')]
+        tdict1["AvgNQFees$"]=[('%f' % (round(trades*tc.nqf/len(self._days_dict),2))).rstrip('0').rstrip('.')]
+        
+        tdict1["LWin"]=[largest_winner]
+        tdict1["LLoss"]=[largest_loser]
+        if winners > 0:
+            tdict1["AWin"]=[avg_winner]
+        if losers > 0:
+            tdict1["ALoss"]=[avg_loser]
+
+        tdict2=dict()
+        tdict2["Shorts"]=[shorts]
+        tdict2["ShWins"]=[short_winners]
+        tdict2["ShWin%"]= ('%f' % round((short_winners/shorts)*100,2)).rstrip('0').rstrip('.')
+        tdict2["Longs"]=[longs]
+        tdict2["LWins"]=[long_winners]
+        tdict2["LWin%"]= ('%f' % round((long_winners/longs)*100,2)).rstrip('0').rstrip('.')
+
         self._summary_df=pd.DataFrame(tdict)
+        self._summary_df_2=pd.DataFrame(tdict1)
+        self._summary_df_3=pd.DataFrame(tdict2)
 
     def __separate_days(self):
         for row in self._full_df.itertuples(index=False):
@@ -354,7 +399,54 @@ class ProcessTrades:
         return(result_df,full_result_df, days_dict)
         """
 
+#def cal_month(self, month, year, df):
+def cal_month(month, year):   
+    #dts=set(df['Date'].tolist())
+
+    obj = calendar.Calendar()
+    st.header(f"{calendar.month_name[month]} {year}")
+    cols=st.columns(7)
+    for j in range (0,7):
+        with cols[j]:
+            st.write(calendar.day_abbr[j])
+    for week in obj.monthdays2calendar(year, month):
+        cols=st.columns(7)
+        for j in range (len(week)):
+            with cols[j]:
+                if week[j][0] != 0:
+                    dt=datetime.datetime(int(year), int(month),int(week[j][0]))
+                    st.write(f"{week[j][0]}")
+                    #if dt.date() in dts:
+                    #    row=df[df['Date']==dt.date()]
+                    #    st.metric(f"{row.iloc[0]['Win%']}%",f"{week[j][0]}",row.iloc[0]['Net'])
+                    #else:
+                    #    st.metric("",f"{week[j][0]}")
+    st.session_state.press=False
+
+
+
 #Functions
+
+def next_month(month,year, options):
+    st.session_state.press=True
+    if month < 12:
+        st.session_state.selectedMonth+=1
+    else:
+        if year+1 in options:
+            st.session_state.selectedYear+=1
+            st.session_state.selectedMonth=1
+    
+
+
+def prev_month(month,year, options):
+    st.session_state.press=True
+    if month > 1:
+        st.session_state.selectedMonth-=1
+    else:
+        if year-1 in options:
+            st.session_state.selectedYear-=1
+            st.session_state.selectedMonth=12
+    
 
 def processTargetsFile():
     targetkeys=list()
@@ -449,16 +541,32 @@ def cuDB(ufiles, op):
         final_df.to_pickle(file)
 
 def main():
+
     #Parse Targets File
     (targetkeys,datadict)=processTargetsFile()
 
     #streamlit code
+    cnow=datetime.datetime.now()   
+    st.session_state.cyear=cnow.year
+    st.session_state.cmonth=cnow.month
+    st.session_state.cday=cnow.day
+    
+    
+    yoptions=range(2020, 2025)
+    moptions = list(range(1,len(calendar.month_name)))
     st.set_page_config(layout="wide")
     with st.sidebar:
         st.header("Control Panel")
         mode=st.selectbox('Operation Mode',["Setup","Dashboard", "Dataframes","Daily","Calendar", "Charting","Schedule"])
-
+        if mode == "Calendar":
+            sbcol11, sbcol22 = st.columns(2) 
+            sel_year= sbcol11.selectbox('Year',yoptions,index=yoptions.index(st.session_state.cyear))
+            sel_month= sbcol22.selectbox("Month", moptions, format_func=lambda x: calendar.month_name[x],index=moptions.index(st.session_state.cmonth))   
+            
     if mode == "Setup":
+        st.session_state.selectedMonth=st.session_state.cmonth
+        st.session_state.selectedYear=st.session_state.cyear
+        st.session_state.press=False
         st.header("Configuration")
         st.session_state.selectedTarget=st.radio(f"Working with Target:", targetkeys)
         st.header("DataBase Operations")
@@ -496,7 +604,26 @@ def main():
         st.subheader("Summary Dataframe")
         pt.create_summary_df(datadict[st.session_state.selectedTarget])
         st.dataframe(pt.summary_df)
+        st.dataframe(pt.summary_df_2)
+        st.dataframe(pt.summary_df_3)
+    elif mode == "Calendar":
+        st.subheader("Calendar")
+        sbcol1, sbcol2 = st.columns(2)
+        
 
+        sbcol1.button("Prev", on_click=prev_month, args=(st.session_state.selectedMonth,st.session_state.selectedYear, yoptions))
+        sbcol2.button("Next", on_click=next_month, args=(st.session_state.selectedMonth,st.session_state.selectedYear, yoptions))
+        
+    
+        if st.session_state.press:
+            sel_month=st.session_state.selectedMonth
+            sel_year=st.session_state.selectedYear
+        if sel_month != st.session_state.selectedMonth or sel_year != st.session_state.selectedYear:
+            cal_month(sel_month, sel_year)  
+            st.session_state.selectedMonth=sel_month
+            st.session_state.selectedYear=sel_year  
+        else:
+            cal_month(st.session_state.selectedMonth,st.session_state.selectedYear)
 
 if __name__ == "__main__" or __name__ == "__tr_app__":
     # execute only if run as a script
