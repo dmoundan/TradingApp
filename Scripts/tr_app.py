@@ -21,11 +21,17 @@ from collections import deque
 
 import yfinance as yf
 
-
+import requests
+from bs4 import BeautifulSoup
+import lxml
+import pandas as pd
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 ######Globals########
 
 #File/Location Related
+DRIVER_PATH="/Users/dmoundanos/Development/TradingApp/Executables/chromedriver"
 
 PersonalTransactionDB="PersonalTranscation.pickle"
 dataLocation="../Data/"
@@ -574,6 +580,33 @@ def cuDB(ufiles, op):
         final_df.reset_index(drop=True, inplace=True)
         final_df.to_pickle(file)
 
+def get_tradovate_futures_margins():
+    futures_margins_url="https://www.tradovate.com/resources/markets/margin/?utm_campaign=pricing&utm_source=paidsearch&utm_medium=adwords&utm_content=textad&ads_cmpid=829315388&ads_adid=124817818990&ads_matchtype=e&ads_network=g&ads_creative=514632727397&utm_term=tradovate%20margin%20requirements&ads_targetid=kwd-1455151606552&utm_source=adwords&utm_medium=ppc&ttv=2&gclid=CjwKCAjw4qCKBhAVEiwAkTYsPM_5Qlb60sydGoWUHmyZtA-gWFotbYILJMLPXmorfA5qbcqO7CYYdxoCETwQAvD_BwE"
+    options=Options()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options, executable_path=DRIVER_PATH)
+    driver.get(futures_margins_url)
+    html=driver.page_source
+    soup = BeautifulSoup(html,"lxml")
+    table_data=soup.findAll("table")[0]
+    headers = []
+    for i in table_data.find_all('th'):
+        title = i.text.strip()
+        headers.append(title)
+    df = pd.DataFrame(columns = headers)
+    for j in table_data.find_all('tr'):
+        row_data = j.find_all('td')
+        #for tr in row_data:
+        #    print(tr.text)
+        row = [tr.text.strip() for tr in row_data]
+        if len(row) > 0:
+            length = len(df)
+            df.loc[length] = row
+    df=df[df["Group"] == "E-Mini Indices"]
+    driver.close()
+    driver.quit()
+    return(df)
+
 def main():
 
     #Parse Targets File
@@ -627,6 +660,9 @@ def main():
                 st.write(f"The file: {file} does not exist")
     elif mode == "Schedule":
         st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df))
+    elif mode == "Dashboard":
+        st.subheader("Tradovate Futures Margins")
+        st.dataframe(get_tradovate_futures_margins())
     elif mode == "Daily":
         file=dbLocation+PersonalTransactionDB
         if os.path.exists(file):
