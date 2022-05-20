@@ -400,8 +400,8 @@ class ProcessTrades:
         """
 
 #def cal_month(self, month, year, df):
-def cal_month(month, year):   
-    #dts=set(df['Date'].tolist())
+def cal_month(month, year,df):   
+    dts=set(df['Date'].tolist())
 
     obj = calendar.Calendar()
     st.header(f"{calendar.month_name[month]} {year}")
@@ -415,12 +415,12 @@ def cal_month(month, year):
             with cols[j]:
                 if week[j][0] != 0:
                     dt=datetime.datetime(int(year), int(month),int(week[j][0]))
-                    st.write(f"{week[j][0]}")
-                    #if dt.date() in dts:
-                    #    row=df[df['Date']==dt.date()]
-                    #    st.metric(f"{row.iloc[0]['Win%']}%",f"{week[j][0]}",row.iloc[0]['Net'])
-                    #else:
-                    #    st.metric("",f"{week[j][0]}")
+                    #st.write(f"{week[j][0]}")
+                    if dt.date() in dts:
+                        row=df[df['Date']==dt.date()]
+                        st.metric(f"{row.iloc[0]['Win%']}%",f"{week[j][0]}",row.iloc[0]['Net'])
+                    else:
+                        st.metric("",f"{week[j][0]}")
     st.session_state.press=False
 
 
@@ -469,12 +469,15 @@ def processTargetsFile():
             datadict[key]=tcls
     return(targetkeys,datadict)
 
-def createSchedule(tcls):
-    schedule=dict({"Day":[],"Date":[], "AccountGoal":[], "DailyGoal":[],"CumTargetGoal":[]})
+def createSchedule(tcls, df):
+    dts=set(df['Date'].tolist())
+    schedule=dict({"Day":[],"Date":[], "AccountGoal":[], "DailyGoal":[],"AdjGoal":[],"CumTargetGoal":[], "DailyResult":[],"CumReturn":[],"ActualAccount":[],"DailyReturn":[],"CumActualResult":[],"AheadBehind":[]})
     currDate=tcls.startDate
     count=1
     prev=tcls.ib
     cumTargetGoal=0
+    cumActualResult=0
+    actualAcct=tcls.ib
     for i in range(60):
         dat=currDate+timedelta(days=i)
         if dat.weekday() < 5 and dat not in tcls.exset:
@@ -490,6 +493,37 @@ def createSchedule(tcls):
             prev=temp1
             schedule["Day"].append(count)
             count+=1
+            year=dat.year
+            month=dat.month
+            day=dat.day
+            dt=datetime.datetime(int(year), int(month),int(day))
+            if dt.date() in dts:
+                print("in here")
+                row=df[df['Date']==dat]
+                print(row.iloc[0]['Net'])
+                schedule["DailyResult"].append(row.iloc[0]['Net'])
+                dailyreturn=round((float(row.iloc[0]['Net'])/actualAcct)*100,2)
+                schedule["DailyReturn"].append(('%f' % dailyreturn).rstrip('0').rstrip('.'))
+                adjgoal=round(tcls.pt*actualAcct,2)
+                schedule["AdjGoal"].append(('%f' % adjgoal).rstrip('0').rstrip('.'))
+                actualAcct+=float(row.iloc[0]['Net'])
+                cumActualResult+=float(row.iloc[0]['Net'])
+                cumActualResult1=round(cumActualResult,2)
+                actualAcct1=round(actualAcct,2)
+                cumreturn=round((cumActualResult1/tcls.ib)*100,2)
+                schedule["ActualAccount"].append(('%f' % actualAcct1).rstrip('0').rstrip('.'))
+                schedule["CumActualResult"].append(('%f' % cumActualResult1).rstrip('0').rstrip('.'))
+                schedule["AheadBehind"].append(('%f' % (cumActualResult1-cumTargetGoal1)).rstrip('0').rstrip('.'))
+                schedule["CumReturn"].append(('%f' % cumreturn).rstrip('0').rstrip('.'))
+            else:
+                schedule["DailyResult"].append("NA")
+                schedule["ActualAccount"].append("NA")
+                schedule["CumActualResult"].append("NA")
+                schedule["AheadBehind"].append("NA")
+                schedule["CumReturn"].append("NA")
+                schedule["DailyReturn"].append("NA")
+                schedule["AdjGoal"].append("NA")
+
             #st.write(f"date is :{dat.date()}")
             schedule["Date"].append(dat) 
     df=pd.DataFrame(schedule)
@@ -592,7 +626,7 @@ def main():
             else:
                 st.write(f"The file: {file} does not exist")
     elif mode == "Schedule":
-        st.dataframe(createSchedule(datadict[st.session_state.selectedTarget]))
+        st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df))
     elif mode == "Daily":
         file=dbLocation+PersonalTransactionDB
         if os.path.exists(file):
@@ -601,6 +635,7 @@ def main():
         pt.process_full_df(datadict[st.session_state.selectedTarget])
         st.subheader("Daily Dataframe")
         st.dataframe(pt.daily_df)
+        st.session_state.daily_df=pt.daily_df
         st.subheader("Summary Dataframe")
         pt.create_summary_df(datadict[st.session_state.selectedTarget])
         st.dataframe(pt.summary_df)
@@ -619,11 +654,11 @@ def main():
             sel_month=st.session_state.selectedMonth
             sel_year=st.session_state.selectedYear
         if sel_month != st.session_state.selectedMonth or sel_year != st.session_state.selectedYear:
-            cal_month(sel_month, sel_year)  
+            cal_month(sel_month, sel_year, st.session_state.daily_df)  
             st.session_state.selectedMonth=sel_month
             st.session_state.selectedYear=sel_year  
         else:
-            cal_month(st.session_state.selectedMonth,st.session_state.selectedYear)
+            cal_month(st.session_state.selectedMonth,st.session_state.selectedYear, st.session_state.daily_df)
 
 if __name__ == "__main__" or __name__ == "__tr_app__":
     # execute only if run as a script
