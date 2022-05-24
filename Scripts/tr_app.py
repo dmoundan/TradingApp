@@ -571,9 +571,9 @@ def cuDB(ufiles, op):
     full_df=pd.concat(processed_dfs)
     full_df.reset_index(drop=True, inplace=True)
     if op == "create":   
-        full_df.to_pickle(dbLocation+PersonalTransactionDB)
+        full_df.to_pickle(dbLocation+st.session_state.selectedJDB)
     elif op == "update":
-        file=dbLocation+PersonalTransactionDB
+        file=dbLocation+st.session_state.selectedJDB
         current_df=pd.read_pickle(file)
         os.remove(file)
         final_df=pd.concat([current_df,full_df])
@@ -635,24 +635,33 @@ def main():
         st.session_state.selectedYear=st.session_state.cyear
         st.session_state.press=False
         st.header("Configuration")
-        st.session_state.selectedTarget=st.radio(f"Working with Target:", targetkeys)
+        targetkeys.insert(0,"None")
+        st.session_state.selectedTarget=st.radio(f"Working with Journaling Target:", targetkeys)
         st.header("DataBase Operations")
-        op1=st.radio(f"Working with DB {PersonalTransactionDB}", ("Display","Create","Update"))
+        dblist=list()
+        for tgt in targetkeys:
+            if tgt =="None":
+                dblist.append(tgt)
+            else:
+                tgt1=tgt+".pickle"
+                dblist.append(tgt1)
+        st.session_state.selectedJDB=st.radio(f"Working with Journaling DB:", dblist)
+        op1=st.radio(f"Working with DB {st.session_state.selectedJDB}", ("Display","Create","Update"))
         if op1 == "Create":
-            file=dbLocation+PersonalTransactionDB
+            file=dbLocation+st.session_state.selectedJDB
             if os.path.exists(file):
                 os.remove(file)
             uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
             if uploaded_files:
                 cuDB(uploaded_files, "create")
         elif op1 == "Update":
-            file=dbLocation+PersonalTransactionDB
+            file=dbLocation+st.session_state.selectedJDB
             if os.path.exists(file):
                 uploaded_files = st.file_uploader("Choose a CSV file", accept_multiple_files=True)
                 if uploaded_files:
                     cuDB(uploaded_files, "update")
         elif op1 == "Display":
-            file=dbLocation+PersonalTransactionDB
+            file=dbLocation+st.session_state.selectedJDB
             if os.path.exists(file):
                 full_df=pd.read_pickle(file)
                 st.dataframe(full_df)
@@ -664,7 +673,7 @@ def main():
         st.subheader("Tradovate Futures Margins")
         st.dataframe(get_tradovate_futures_margins())
     elif mode == "Daily":
-        file=dbLocation+PersonalTransactionDB
+        file=dbLocation+st.session_state.selectedJDB
         if os.path.exists(file):
             full_df=pd.read_pickle(file)
         pt=ProcessTrades(full_df)
