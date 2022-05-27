@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from argon2 import PasswordHasher
 import streamlit as st
 import plotly.express as px 
 import plotly.graph_objects as go
@@ -8,6 +9,8 @@ from plotly.subplots import make_subplots
 import argparse
 import sys
 import os
+import csv
+
 import pandas as pd
 import numpy as np 
 import datetime
@@ -16,6 +19,8 @@ from dateutil.relativedelta import relativedelta, FR
 import calendar
 import matplotlib.pyplot as plt
 import json
+import pickle
+
 
 from collections import deque
 
@@ -37,6 +42,12 @@ PersonalTransactionDB="PersonalTranscation.pickle"
 dataLocation="../Data/"
 dbLocation="../DataBase/"
 targetsFile="Targets.json"
+
+weeklyOptions="weeklys.csv"
+xletfs="XLETFs.json"
+wpf="weeklies.pickle"
+icpf="ic.pickle"
+xletfpf="xletf.pickle"
 
 #Transaction Related
 columns_tst=["symbol","qty","buyPrice","sellPrice","pnl","boughtTimestamp","soldTimestamp","duration"]
@@ -580,6 +591,7 @@ def cuDB(ufiles, op):
         final_df.reset_index(drop=True, inplace=True)
         final_df.to_pickle(file)
 
+@st.cache
 def get_tradovate_futures_margins():
     futures_margins_url="https://www.tradovate.com/resources/markets/margin/?utm_campaign=pricing&utm_source=paidsearch&utm_medium=adwords&utm_content=textad&ads_cmpid=829315388&ads_adid=124817818990&ads_matchtype=e&ads_network=g&ads_creative=514632727397&utm_term=tradovate%20margin%20requirements&ads_targetid=kwd-1455151606552&utm_source=adwords&utm_medium=ppc&ttv=2&gclid=CjwKCAjw4qCKBhAVEiwAkTYsPM_5Qlb60sydGoWUHmyZtA-gWFotbYILJMLPXmorfA5qbcqO7CYYdxoCETwQAvD_BwE"
     options=Options()
@@ -607,6 +619,129 @@ def get_tradovate_futures_margins():
     driver.quit()
     return(df)
 
+@st.cache
+def get_earnings_yahoo(day):
+    base_url="https://finance.yahoo.com/calendar/earnings?day="
+    url=base_url+day
+    #print(url)
+    options=Options()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options, executable_path=DRIVER_PATH)
+    driver.get(url)
+    html=driver.page_source
+    soup = BeautifulSoup(html,"lxml")
+    table_data=soup.findAll("table")[0]
+    
+    headers = []
+    for i in table_data.find_all('th'):
+        title = i.text.strip()
+        headers.append(title)
+    df = pd.DataFrame(columns = headers)
+    for j in table_data.find_all('tr'):
+        row_data = j.find_all('td')
+        row = [tr.text.strip() for tr in row_data]
+        if len(row) > 0:
+            length = len(df)
+            df.loc[length] = row
+    driver.close()
+    driver.quit()
+    return df
+
+@st.cache
+def get_index_components():
+    ic=dict()
+    nurl="https://www.slickcharts.com/nasdaq100"
+    surl="https://www.slickcharts.com/sp500"
+    durl="https://www.slickcharts.com/dowjones"
+    
+    
+    #page = requests.get(nurl)
+    #soup = BeautifulSoup(page.text, 'html.parser')
+    #dfs=pd.read_html(page.text)
+    #table = soup.find_all('table')
+    options=Options()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options, executable_path=DRIVER_PATH)
+    
+    for url in [nurl, surl, durl]:
+        driver.get(url)
+        html=driver.page_source
+        dfs=pd.read_html(html)
+        if url == nurl:
+            ic["nasdaq"]=dfs[0][["Company", "Symbol","Weight"]]
+        elif url == surl:
+            ic["sp500"]=dfs[0][["Company", "Symbol","Weight"]]
+        elif url == durl:
+            ic["dow"]=dfs[0][["Company", "Symbol","Weight"]]
+    driver.close()
+    driver.quit()
+    filename=dbLocation+icpf
+    if os.path.exists(filename):
+        os.remove(filename)
+    with open(filename, 'wb') as f:
+        pickle.dump(ic,f)
+
+def getSPDRETFs():
+    xletfinfo=dict()
+    murl="https://www.sectorspdr.com/sectorspdr/"
+    str="IDCO.Client.Spdrs.Portfolio/Export/ExportCsv?symbol="
+    f=open(dataLocation+xletfs)
+    xetfs=json.load(f)
+    f.close()
+    for item in xetfs['XLETFs']:
+        for key in item.keys():
+            #print(key)
+            #print(item[key])
+            url=murl+str+key.lower()
+            #print(url)      
+            r = requests.get(url)
+            filename=key.lower()+".csv"
+            with open(filename, 'wb') as f:
+                f.write(r.content)
+            with open(filename) as f:
+                lines = f.readlines()
+            with open(filename, 'w') as f:
+                f.writelines(lines[1:-2])
+            df=pd.read_csv(filename, usecols=["Symbol", "Company Name", "Weight"])
+            os.remove(filename)
+            xletfinfo[key]=df
+    filename=dbLocation+xletfpf
+    if os.path.exists(filename):
+        os.remove(filename)
+    with open(filename, 'wb') as f:
+        pickle.dump(xletfinfo,f)
+
+def getStocksWithWeeklyOptions():
+    weeklies=dict()
+    csvf=dataLocation+weeklyOptions
+    #df=pd.read_csv(csvf)
+    #print(df)
+    
+    with open(csvf) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        line_count=0
+        change_flag=0
+        for row in csv_reader:
+            if line_count == 0:
+                line_count += 1
+                continue
+            elif row[0] == "":
+                continue
+            elif row[0]=="Available Weeklys - Equity":
+                change_flag=1
+                continue
+            else:
+                if change_flag==0:
+                    weeklies[row[0]]=("ETF", row[1])
+                elif change_flag==1:
+                    weeklies[row[0]]=("Stock", row[1])
+                line_count += 1
+    filename=dbLocation+wpf
+    if os.path.exists(filename):
+        os.remove(filename)
+    with open(filename, 'wb') as f:
+        pickle.dump(weeklies,f)
+
 def main():
 
     #Parse Targets File
@@ -629,7 +764,12 @@ def main():
             sbcol11, sbcol22 = st.columns(2) 
             sel_year= sbcol11.selectbox('Year',yoptions,index=yoptions.index(st.session_state.cyear))
             sel_month= sbcol22.selectbox("Month", moptions, format_func=lambda x: calendar.month_name[x],index=moptions.index(st.session_state.cmonth))   
-            
+        elif mode == "Dashboard":
+            st.subheader("Earnings Dates Range")
+            sbcol11, sbcol22 = st.columns(2) 
+            day_from=sbcol11.date_input("From",datetime.date(int(st.session_state.cyear),int(st.session_state.cmonth),st.session_state.cday))
+            day_to=sbcol22.date_input("To",datetime.date(int(st.session_state.cyear),int(st.session_state.cmonth),st.session_state.cday))    
+        
     if mode == "Setup":
         st.session_state.selectedMonth=st.session_state.cmonth
         st.session_state.selectedYear=st.session_state.cyear
@@ -667,11 +807,47 @@ def main():
                 st.dataframe(full_df)
             else:
                 st.write(f"The file: {file} does not exist")
+        st.header("Data Collection")
+        doptions = st.multiselect(
+                                    'Ticker Classification',
+                                ['Index Tickers', 'Weekly Option Tickers', 'SPDR ETF Tickers'])
+        for t in doptions:
+            if t == "Index Tickers":
+                get_index_components()
+            elif t == "Weekly Option Tickers":
+                getStocksWithWeeklyOptions()
+            elif t == "SPDR ETF Tickers":
+                getSPDRETFs()
+     
+
     elif mode == "Schedule":
         st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df))
     elif mode == "Dashboard":
+        filename=dbLocation+icpf
+        with open(filename, 'rb') as f:
+            ic=pickle.load(f)
+        symset1=set(ic["dow"]['Symbol'].tolist())
+        symset2=set(ic["nasdaq"]['Symbol'].tolist())
+        symset3=set(ic["sp500"]['Symbol'].tolist())
+        symset=symset1.union(symset2, symset3)
+
+        
+
         st.subheader("Tradovate Futures Margins")
         st.dataframe(get_tradovate_futures_margins())
+        st.subheader("Earnings")
+        if day_from == day_to:
+            day_from_1=datetime.date.strftime(day_from,"%Y-%m-%d")
+            st.subheader(day_from_1)
+            df=get_earnings_yahoo(day_from_1)
+            st.dataframe(df[df['Symbol'].isin(symset)])
+        else:
+            l1=[day_from+datetime.timedelta(days=x) for x in range((day_to-day_from).days + 1)]
+            for day in l1:
+                day_from_1=datetime.date.strftime(day,"%Y-%m-%d")
+                st.subheader(day_from_1)
+                df=get_earnings_yahoo(day_from_1)
+                st.dataframe(df[df['Symbol'].isin(symset)])  
     elif mode == "Daily":
         file=dbLocation+st.session_state.selectedJDB
         if os.path.exists(file):
