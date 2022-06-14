@@ -495,6 +495,7 @@ def createSchedule(tcls, df):
     cumTargetGoal=0
     cumActualResult=0
     actualAcct=tcls.ib
+    agc=0
     for i in range(60):
         dat=currDate+timedelta(days=i)
         if dat.weekday() < 5 and dat not in tcls.exset:
@@ -514,10 +515,10 @@ def createSchedule(tcls, df):
             month=dat.month
             day=dat.day
             dt=datetime.datetime(int(year), int(month),int(day))
+            
             if dt.date() in dts:
-                print("in here")
                 row=df[df['Date']==dat]
-                print(row.iloc[0]['Net'])
+                #print(row.iloc[0]['Net'])
                 schedule["DailyResult"].append(row.iloc[0]['Net'])
                 dailyreturn=round((float(row.iloc[0]['Net'])/actualAcct)*100,2)
                 schedule["DailyReturn"].append(('%f' % dailyreturn).rstrip('0').rstrip('.'))
@@ -533,13 +534,18 @@ def createSchedule(tcls, df):
                 schedule["AheadBehind"].append(('%f' % (cumActualResult1-cumTargetGoal1)).rstrip('0').rstrip('.'))
                 schedule["CumReturn"].append(('%f' % cumreturn).rstrip('0').rstrip('.'))
             else:
+                agc+=1
                 schedule["DailyResult"].append("NA")
                 schedule["ActualAccount"].append("NA")
                 schedule["CumActualResult"].append("NA")
                 schedule["AheadBehind"].append("NA")
                 schedule["CumReturn"].append("NA")
                 schedule["DailyReturn"].append("NA")
-                schedule["AdjGoal"].append("NA")
+                if agc==1:
+                    agt=round(float(schedule["ActualAccount"][-2])*tcls.pt,2)
+                    schedule["AdjGoal"].append(('%f' % agt).rstrip('0').rstrip('.'))
+                else:
+                    schedule["AdjGoal"].append("NA")
 
             #st.write(f"date is :{dat.date()}")
             schedule["Date"].append(dat) 
