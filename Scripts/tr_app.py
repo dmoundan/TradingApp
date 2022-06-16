@@ -749,6 +749,8 @@ def getStocksWithWeeklyOptions():
         pickle.dump(weeklies,f)
 
 def main():
+    #session state initialization
+    #st.session_state.selectedTarget="None"
 
     #Parse Targets File
     (targetkeys,datadict)=processTargetsFile()
