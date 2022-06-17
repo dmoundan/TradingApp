@@ -870,6 +870,9 @@ def main():
         st.dataframe(pt.summary_df)
         st.dataframe(pt.summary_df_2)
         st.dataframe(pt.summary_df_3)
+        #Plots
+        df1=pt.daily_df[["Date","Trades","Winners","Losers"]]
+        st.dataframe(df1)
     elif mode == "Calendar":
         st.subheader("Calendar")
         sbcol1, sbcol2 = st.columns(2)
