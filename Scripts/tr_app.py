@@ -457,6 +457,14 @@ def custom_style_schedule(row):
             color='#faab89'
     return ['background-color: %s' % color]*len(row.values)
 
+def custom_style_result(row):
+    color='white'
+    if float(row.values[7]) > 0:
+        color = '#bff799'
+    else:
+        color='#faab89'
+    return ['background-color: %s' % color]*len(row.values)
+
 ####Figures
 #stacked bar
 def fig_stacked_bar(df, lst, title,colors):
@@ -930,7 +938,7 @@ def main():
         pt=ProcessTrades(full_df)
         pt.process_full_df(datadict[st.session_state.selectedTarget])
         st.subheader("Daily Dataframe")
-        st.dataframe(pt.daily_df)
+        st.dataframe(pt.daily_df.style.apply(custom_style_result,axis=1))
         st.session_state.daily_df=pt.daily_df
         st.subheader("Summary Dataframe")
         pt.create_summary_df(datadict[st.session_state.selectedTarget])
