@@ -444,6 +444,19 @@ def cal_month(month, year,df):
 
 #Functions
 
+#Highlighting
+
+def custom_style_schedule(row):
+    color='white'
+    if row.values[8] != "NA":
+        if float(row.values[8]) >= (datadict[st.session_state.selectedTarget].pt)*100:
+            color = '#bff799'
+        elif float(row.values[8]) < (datadict[st.session_state.selectedTarget].pt)*100 and float(row.values[8]) >0:
+            color='#f7cb94'
+        else:
+            color='#faab89'
+    return ['background-color: %s' % color]*len(row.values)
+
 ####Figures
 #stacked bar
 def fig_stacked_bar(df, lst, title,colors):
@@ -520,7 +533,7 @@ def prev_month(month,year, options):
 
 def processTargetsFile():
     targetkeys=list()
-    datadict=dict()
+    datadict1=dict()
     tf=dataLocation+targetsFile
     with open(tf,"r") as f:
         targets=json.load(f)
@@ -536,12 +549,12 @@ def processTargetsFile():
             sd=item[key]['SD']
             excl=item[key]['Exclusions']
             tcls=TargetsCls(ib, pt, nqf, mnqf, sy, sm, sd, excl)
-            datadict[key]=tcls
-    return(targetkeys,datadict)
+            datadict1[key]=tcls
+    return(targetkeys,datadict1)
 
 def createSchedule(tcls, df):
     dts=set(df['Date'].tolist())
-    schedule=dict({"Day":[],"Date":[], "AccountGoal":[], "DailyGoal":[],"AdjGoal":[],"CumTargetGoal":[], "DailyResult":[],"CumReturn":[],"ActualAccount":[],"DailyReturn":[],"CumActualResult":[],"AheadBehind":[]})
+    schedule=dict({"Day":[],"Date":[], "AccountGoal":[], "DailyGoal":[],"AdjGoal":[],"CumTargetGoal":[], "DailyResult":[],"CumReturn%":[],"ActualAccount":[],"DailyReturn%":[],"CumActualResult":[],"AheadBehind":[]})
     currDate=tcls.startDate
     count=1
     prev=tcls.ib
@@ -574,7 +587,7 @@ def createSchedule(tcls, df):
                 #print(row.iloc[0]['Net'])
                 schedule["DailyResult"].append(row.iloc[0]['Net'])
                 dailyreturn=round((float(row.iloc[0]['Net'])/actualAcct)*100,2)
-                schedule["DailyReturn"].append(('%f' % dailyreturn).rstrip('0').rstrip('.'))
+                schedule["DailyReturn%"].append(('%f' % dailyreturn).rstrip('0').rstrip('.'))
                 adjgoal=round(tcls.pt*actualAcct,2)
                 schedule["AdjGoal"].append(('%f' % adjgoal).rstrip('0').rstrip('.'))
                 actualAcct+=float(row.iloc[0]['Net'])
@@ -585,15 +598,15 @@ def createSchedule(tcls, df):
                 schedule["ActualAccount"].append(('%f' % actualAcct1).rstrip('0').rstrip('.'))
                 schedule["CumActualResult"].append(('%f' % cumActualResult1).rstrip('0').rstrip('.'))
                 schedule["AheadBehind"].append(('%f' % (cumActualResult1-cumTargetGoal1)).rstrip('0').rstrip('.'))
-                schedule["CumReturn"].append(('%f' % cumreturn).rstrip('0').rstrip('.'))
+                schedule["CumReturn%"].append(('%f' % cumreturn).rstrip('0').rstrip('.'))
             else:
                 agc+=1
                 schedule["DailyResult"].append("NA")
                 schedule["ActualAccount"].append("NA")
                 schedule["CumActualResult"].append("NA")
                 schedule["AheadBehind"].append("NA")
-                schedule["CumReturn"].append("NA")
-                schedule["DailyReturn"].append("NA")
+                schedule["CumReturn%"].append("NA")
+                schedule["DailyReturn%"].append("NA")
                 if agc==1:
                     agt=round(float(schedule["ActualAccount"][-2])*tcls.pt,2)
                     schedule["AdjGoal"].append(('%f' % agt).rstrip('0').rstrip('.'))
@@ -806,6 +819,7 @@ def main():
     #st.session_state.selectedTarget="None"
 
     #Parse Targets File
+    global datadict
     (targetkeys,datadict)=processTargetsFile()
 
     #streamlit code
@@ -882,7 +896,7 @@ def main():
      
 
     elif mode == "Schedule":
-        st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df))
+        st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df).style.apply(custom_style_schedule,axis=1))
     elif mode == "Dashboard":
         filename=dbLocation+icpf
         with open(filename, 'rb') as f:
