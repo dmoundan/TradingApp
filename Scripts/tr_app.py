@@ -361,9 +361,9 @@ class ProcessTrades:
         tdict["Losers"]=[losers]
         tdict["Win%"]= ('%f' % round((winners/contracts)*100,2)).rstrip('0').rstrip('.')
         #tdict["Net"]=round(points*point_value-contracts*fee,2)
-        #tdict["Long"]=[longs]
+        tdict["Long"]=[longs]
         #tdict["LongW"]=[long_winners]
-        #tdict["Short"]=[shorts]
+        tdict["Short"]=[shorts]
         #tdict["ShortW"]=[short_winners]
         #tdict["Points"]=round(points,2)
         tdict["Net"]=[ ('%f' % (net-fees)).rstrip('0').rstrip('.')]
@@ -443,6 +443,59 @@ def cal_month(month, year,df):
 
 
 #Functions
+
+####Figures
+#stacked bar
+def fig_stacked_bar(df, lst, title,colors):
+    cdm=dict()
+    cnt=0
+    for item in lst:
+        cdm[item]=colors[cnt]
+        cnt+=1
+    fig = px.bar(df, x='Date', y=lst, title=title,
+    #                color_discrete_map={
+    #                    lst[0]:"green",
+    #                    lst[1]:"red"
+    #                }
+                    color_discrete_map=cdm
+                    )
+    fig.update_xaxes(
+            rangebreaks=[
+                { 'pattern': 'day of week', 'bounds': [6, 1]}
+            ]
+    )  
+    st.write(fig)
+
+#line
+def fig_line(df,lst,title):
+    fig = px.line(df, x="Date", y=lst, title=title, markers=True)
+    fig.update_xaxes(
+                    rangebreaks=[
+                    { 'pattern': 'day of week', 'bounds': [6, 1]}
+                ]
+    )  
+    st.write(fig)
+
+#Period results and PnL line
+def fig_combo(df):
+    df1=df
+    fig = make_subplots(1,1)
+    
+    fig.add_trace(go.Bar(x=df['Date'], y=df['Net'],
+                    name='Net',
+                    marker_color = df['Color'],
+                    opacity=0.4,
+                    marker_line_color='rgb(8,48,107)',
+                    marker_line_width=2),
+            row = 1, col = 1)
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['CumNet'], line=dict(color='yellow'), name='CumNet'),
+            row = 1, col = 1)    
+    fig.update_xaxes(
+            rangebreaks=[
+                { 'pattern': 'day of week', 'bounds': [6, 1]}
+            ]
+    )  
+    st.write(fig)
 
 def next_month(month,year, options):
     st.session_state.press=True
@@ -871,8 +924,27 @@ def main():
         st.dataframe(pt.summary_df_2)
         st.dataframe(pt.summary_df_3)
         #Plots
-        df1=pt.daily_df[["Date","Trades","Winners","Losers"]]
-        st.dataframe(df1)
+        st.subheader("Daily Plots")
+
+        df1=pt.daily_df[["Date","Trades","Winners","Losers","Long","Short"]]
+        fig_stacked_bar(df1,["Winners", "Losers"],"Trades-Wnners/Losers",["green","red"])
+        fig_stacked_bar(df1,["Long", "Short"],"Trades-Long/Short",["blue","cyan"])
+        df2=pt.daily_df[["Date","Net"]]
+        df2['Net']=df2['Net'].astype(float)
+        df2['CumNet']=df2['Net'].cumsum()
+        df2['PnL']=df2['CumNet']+datadict[st.session_state.selectedTarget].ib
+        #st.dataframe(df2)
+        fig_line(df2,["PnL"],"PnL")
+        df2['Color']=np.where(df2['Net']<0, "red", "green")
+        fig_combo(df2)
+        df2["ActiveDays"]=range(1,len(df2)+1)
+        df2["AvgDailyReturn"]=df2['CumNet']/df2['ActiveDays']
+        fig_line(df2,["AvgDailyReturn"],"AvgDailyReturn")
+
+
+
+
+
     elif mode == "Calendar":
         st.subheader("Calendar")
         sbcol1, sbcol2 = st.columns(2)
