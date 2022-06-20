@@ -509,7 +509,7 @@ def fig_combo(df):
                     marker_line_color='rgb(8,48,107)',
                     marker_line_width=2),
             row = 1, col = 1)
-    fig.add_trace(go.Scatter(x=df['Date'], y=df['CumNet'], line=dict(color='yellow'), name='CumNet'),
+    fig.add_trace(go.Scatter(x=df['Date'], y=df['CumNet'], line=dict(color='blue'), name='CumNet'),
             row = 1, col = 1)    
     fig.update_xaxes(
             rangebreaks=[
