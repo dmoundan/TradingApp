@@ -652,6 +652,66 @@ def process_df(df):
     result=pd.DataFrame(list1)   
     return result
 
+
+def get_monthly_result_df(ddf):
+    dts=set(ddf['Date'].tolist())
+    print(dts)
+    sd=datadict[st.session_state.selectedTarget].startDate
+    start_year=sd.year
+    start_month=sd.month
+    cnow=datetime.datetime.now()
+    end_year=cnow.year
+    end_month=cnow.month
+    month_number=0
+    tdict=dict({"Month" :[], "MonthName" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[]})
+    #tdict=dict({"Month" :[], "MonthName" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[], "Ri/Re":[], "Exp$":[], "AWinP":[], "ALosP":[]})
+
+    for year in range(start_year,end_year+1,1):
+        smonth=start_month if year <= start_year else 1
+        emonth=12 if year != end_year else end_month
+        for month in range(smonth, emonth+1,1):
+            month_number+=1
+            num_days = calendar.monthrange(year, month)[1]
+            days = [datetime.date(year, month, day) for day in range(1, num_days+1)]
+            tdict["Month"].append(month_number)
+            month_name=calendar.month_name[month]+" "+str(year)
+            tdict["MonthName"].append(month_name)
+            net=0
+            trades=0
+            winners=0
+            losers=0
+            lpoints=0
+            wpoints=0
+            points=0
+            count=0
+            for dt in days:
+                if dt in dts:
+                    count+=1
+                    row=ddf[ddf['Date']==dt]
+                    net+=float(row.iloc[0]['Net'])
+                    trades+=int(row.iloc[0]['Trades'])
+                    winners+=int(row.iloc[0]['Winners'])
+                    losers+=int(row.iloc[0]['Losers'])
+                    #wpoints+=row.iloc[0]['WPoints']
+                    #lpoints+=row.iloc[0]['LPoints']
+                    #points+=row.iloc[0]['Points']
+
+            #arisk=lpoints/losers if losers > 0 else 0
+            #areward=wpoints/winners
+            tdict['Net'].append(net)
+            tdict['Trades'].append(trades)
+            tdict['Winners'].append(winners)
+            tdict['Losers'].append(losers)
+            tdict["ActiveDays"].append(count)
+            tdict['Win%'].append(round((winners/trades)*100,2))
+            #tdict['Ri/Re'].append(round(arisk/areward,2))
+            #tdict["Exp$"].append(round(points/trades,2)*point_value)
+            #tdict["AWinP"].append(round(wpoints/winners,2))
+            #tdict["ALosP"].append(round(lpoints/losers,2))
+    rdf=pd.DataFrame(tdict)
+    return rdf
+
+
 def cuDB(ufiles, op):
     processed_dfs=list()
     for uploaded_file in ufiles:
@@ -901,7 +961,10 @@ def main():
                 getStocksWithWeeklyOptions()
             elif t == "SPDR ETF Tickers":
                 getSPDRETFs()
-     
+    elif mode == "Dataframes":
+        st.subheader("Monthly Dataframe")
+        st.dataframe(get_monthly_result_df(st.session_state.daily_df))
+        st.subheader("Weekly Dataframe")
 
     elif mode == "Schedule":
         st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df).style.apply(custom_style_schedule,axis=1))
