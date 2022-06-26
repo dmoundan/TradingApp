@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from tracemalloc import start
 from argon2 import PasswordHasher
 import streamlit as st
 import plotly.express as px 
@@ -652,10 +653,179 @@ def process_df(df):
     result=pd.DataFrame(list1)   
     return result
 
+def fill_missing_days(weeks, month, year):
+    rl=list()
+    c1=0
+    c2=0
+    if weeks[0] == 0: #beginning of month
+        for i in weeks:
+            if i != 0:
+                break
+            else:
+                c1+=1
+    elif weeks[-1] == 0: #end of month
+        for i in weeks:
+            if i != 0:
+                continue
+            else:
+                c2+=1
+    if c2 != 0:
+        nday=1
+        for i in weeks:
+            if i!=0:
+                if month > 9:
+                    dt=f"{year}-{month}-{i}"
+                else:
+                    dt=f"{year}-0{month}-{i}"
+                rl.append(dt)
+            else:
+                if month < 12:
+                    nmonth=month+1
+                    nyear=year
+                else:
+                    nmonth=1
+                    nyear=year+1
+                if nmonth > 9:
+                    dt=f"{nyear}-{nmonth}-{nday}"
+                else:
+                    dt=f"{nyear}-0{nmonth}-{nday}"
+                nday+=1
+                rl.append(dt)
+    return rl
+
+def get_weekly_result_df(ddf):
+    dts=set(ddf['Date'].tolist())
+    sd=datadict[st.session_state.selectedTarget].startDate
+    start_year=sd.year
+    start_month=sd.month
+    start_day=sd.day
+    cnow=datetime.datetime.now()
+    end_year=cnow.year
+    #print(end_year)
+    end_month=cnow.month
+    #print(end_month)
+    end_day=cnow.day
+    #print(end_day)
+    weekdaynum=calendar.weekday(end_year,end_month,end_day)
+    check=set()
+
+    count=0
+    week_number=1
+    flag=False
+    fill_flag=False
+    c = calendar.Calendar()
+    tdict=dict({"Week" :[], "WeekRange" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[]})
+    #tdict=dict({"Week" :[], "WeekRange" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[], "Ri/Re":[], "Exp$":[], "AWinP":[], "ALosP":[]})
+
+    for year in range(start_year,end_year+1,1):
+        smonth=start_month if year <= start_year else 1
+        emonth=12 if year != end_year else end_month
+        for month in range(smonth, emonth+1,1):
+            #print(f"month top {month}")
+            if 1 in check and end_day in check and month == end_month:
+                #print("in here")
+                break
+            for weeks in c.monthdayscalendar(year, month):
+                #print("====")
+                #print(weeks)
+                check.clear()
+                if fill_flag==True:
+                    fill_flag=False
+                    #print("+++")
+                    #print(weeks)
+                    continue
+                lofdates=list()
+                if start_day in weeks:
+                    flag = True
+                if flag == True:
+                    if weeks[0] != 0:
+                        tdict["Week"].append(week_number)
+                        if 0 not in weeks:
+                            tdict["WeekRange"].append(f"{year}-{month}-{weeks[0]}  --  {year}-{month}-{weeks[4]}")
+                            if month < 10:
+                                lofdates=[f"{year}-0{month}-{weeks[0]}", f"{year}-0{month}-{weeks[1]}",f"{year}-0{month}-{weeks[2]}",f"{year}-0{month}-{weeks[3]}",f"{year}-0{month}-{weeks[4]}"]
+                            else:
+                                lofdates=[f"{year}-{month}-{weeks[0]}", f"{year}-{month}-{weeks[1]}",f"{year}-{month}-{weeks[2]}",f"{year}-{month}-{weeks[3]}",f"{year}-{month}-{weeks[4]}"]
+                        else:
+                            l1=fill_missing_days(weeks,month, year)
+                            fill_flag=True
+                            tdict["WeekRange"].append(f"{l1[0]}  --  {l1[4]}")
+                            lofdates.append(l1[0])
+                            lofdates.append(l1[1])
+                            lofdates.append(l1[2])
+                            lofdates.append(l1[3])
+                            lofdates.append(l1[4])
+                        week_number+=1
+                    else:
+                        if count > 0:
+                            continue
+                        else:
+                            tdict["Week"].append(week_number)
+                            if 0 not in weeks:
+                                tdict["WeekRange"].append(f"{year}-{month}-{weeks[0]}  --  {year}-{month}-{weeks[4]}")
+                                if month < 10:
+                                    lofdates=[f"{year}-0{month}-{weeks[0]}", f"{year}-0{month}-{weeks[1]}",f"{year}-0{month}-{weeks[2]}",f"{year}-0{month}-{weeks[3]}",f"{year}-0{month}-{weeks[4]}"]
+                                else:
+                                    lofdates=[f"{year}-{month}-{weeks[0]}", f"{year}-{month}-{weeks[1]}",f"{year}-{month}-{weeks[2]}",f"{year}-{month}-{weeks[3]}",f"{year}-{month}-{weeks[4]}"]
+                            else:
+                                l1=fill_missing_days(weeks,month, year)
+                                fill_flag=True
+                                tdict["WeekRange"].append(f"{l1[0]}  --  {l1[4]}")
+                                lofdates.append(l1[0])
+                                lofdates.append(l1[1])
+                                lofdates.append(l1[2])
+                                lofdates.append(l1[3])
+                                lofdates.append(l1[4])
+                            week_number+=1
+                    net=0
+                    trades=0
+                    winners=0
+                    losers=0
+                    wpoints=0
+                    lpoints=0
+                    points=0
+                    activedays=0
+                    for dt in lofdates:
+                        #print(dt)
+                        l2=dt.split("-") 
+                        check.add(int(l2[2]))
+                        dt1=datetime.datetime(int(l2[0]),int(l2[1]),int(l2[2]))
+                        if dt1.date() in dts:
+                            row=ddf[ddf['Date']==dt1.date()]
+                            net+=float(row.iloc[0]['Net'])
+                            trades+=int(row.iloc[0]['Trades'])
+                            winners+=int(row.iloc[0]['Winners'])
+                            losers+=int(row.iloc[0]['Losers'])
+                            #wpoints+=row.iloc[0]['WPoints'] 
+                            #lpoints+=row.iloc[0]['LPoints']
+                            #points+=row.iloc[0]['Points']
+                            activedays+=1
+                    #arisk=lpoints/losers if losers > 0 else 0
+                    #areward=wpoints/winners if winners > 0 else 0
+                    tdict['Net'].append(net)
+                    tdict['Trades'].append(trades)
+                    tdict['Winners'].append(winners)
+                    tdict['Losers'].append(losers)
+                    tdict['Win%'].append(round((winners/trades)*100,2))
+                    tdict['ActiveDays'].append(activedays)
+                    #tdict['Ri/Re'].append(round(arisk/areward,2))
+                    #tdict["Exp$"].append(round(points/trades,2)*point_value)
+                    #tdict["AWinP"].append(round(wpoints/winners,2))
+                    #tdict["ALosP"].append(round(lpoints/losers,2))
+
+                count+=1
+                #print(check)
+                #print(f"month {month}")
+                lastFriday = datetime.datetime.now() + relativedelta(weekday=FR(-1))
+                if (end_day in check or ((weekdaynum==5 or weekdaynum==6)and lastFriday.day in check)) and (month==end_month):
+                    break
+        
+    rdf=pd.DataFrame(tdict)
+    return rdf
+
 
 def get_monthly_result_df(ddf):
     dts=set(ddf['Date'].tolist())
-    print(dts)
     sd=datadict[st.session_state.selectedTarget].startDate
     start_year=sd.year
     start_month=sd.month
@@ -965,7 +1135,7 @@ def main():
         st.subheader("Monthly Dataframe")
         st.dataframe(get_monthly_result_df(st.session_state.daily_df))
         st.subheader("Weekly Dataframe")
-
+        st.dataframe(get_weekly_result_df(st.session_state.daily_df))
     elif mode == "Schedule":
         st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df).style.apply(custom_style_schedule,axis=1))
     elif mode == "Dashboard":
