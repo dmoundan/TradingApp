@@ -37,7 +37,7 @@ from selenium.webdriver.chrome.options import Options
 ######Globals########
 
 #File/Location Related
-DRIVER_PATH="/Users/dmoundanos/Development/TradingApp/Executables/chromedriver"
+DRIVER_PATH="/Users/dinos/Development/Trading/TradingApp/Executables/chromedriver"
 
 PersonalTransactionDB="PersonalTranscation.pickle"
 dataLocation="../Data/"
