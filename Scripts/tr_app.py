@@ -229,11 +229,16 @@ class ProcessTrades:
         tdict2=dict()
         tdict2["Shorts"]=[shorts]
         tdict2["ShWins"]=[short_winners]
-        tdict2["ShWin%"]= ('%f' % round((short_winners/shorts)*100,2)).rstrip('0').rstrip('.')
+        if shorts !=0:
+            tdict2["ShWin%"]= ('%f' % round((short_winners/shorts)*100,2)).rstrip('0').rstrip('.')
+        else:
+            tdict2["ShWin%"]=0
         tdict2["Longs"]=[longs]
         tdict2["LWins"]=[long_winners]
-        tdict2["LWin%"]= ('%f' % round((long_winners/longs)*100,2)).rstrip('0').rstrip('.')
-
+        if longs != 0:
+            tdict2["LWin%"]= ('%f' % round((long_winners/longs)*100,2)).rstrip('0').rstrip('.')
+        else:
+            tdict2["LWin%"]=0
         self._summary_df=pd.DataFrame(tdict)
         self._summary_df_2=pd.DataFrame(tdict1)
         self._summary_df_3=pd.DataFrame(tdict2)
@@ -1054,11 +1059,13 @@ def getStocksWithWeeklyOptions():
 
 def main():
     #session state initialization
-    #st.session_state.selectedTarget="None"
+   
 
     #Parse Targets File
     global datadict
     (targetkeys,datadict)=processTargetsFile()
+    st.session_state.selectedTarget=targetkeys[-1]
+    st.session_state.selectedJDB=targetkeys[-1]+".pickle"
 
     #streamlit code
     cnow=datetime.datetime.now()   
