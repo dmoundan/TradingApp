@@ -471,6 +471,14 @@ def custom_style_result(row):
         color='#faab89'
     return ['background-color: %s' % color]*len(row.values)
 
+def custom_style_result_week(row):
+    color='white'
+    if float(row.values[2]) > 0:
+        color = '#bff799'
+    else:
+        color='#faab89'
+    return ['background-color: %s' % color]*len(row.values)
+
 ####Figures
 #stacked bar
 def fig_stacked_bar(df, lst, title,colors):
@@ -1140,9 +1148,9 @@ def main():
                 getSPDRETFs()
     elif mode == "Dataframes":
         st.subheader("Monthly Dataframe")
-        st.dataframe(get_monthly_result_df(st.session_state.daily_df))
+        st.dataframe(get_monthly_result_df(st.session_state.daily_df).style.apply(custom_style_result_week,axis=1))
         st.subheader("Weekly Dataframe")
-        st.dataframe(get_weekly_result_df(st.session_state.daily_df))
+        st.dataframe(get_weekly_result_df(st.session_state.daily_df).style.apply(custom_style_result_week,axis=1))
     elif mode == "Schedule":
         st.dataframe(createSchedule(datadict[st.session_state.selectedTarget],st.session_state.daily_df).style.apply(custom_style_schedule,axis=1))
     elif mode == "Dashboard":
