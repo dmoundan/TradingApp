@@ -727,7 +727,7 @@ def get_weekly_result_df(ddf):
     flag=False
     fill_flag=False
     c = calendar.Calendar()
-    tdict=dict({"Week" :[], "WeekRange" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[]})
+    tdict=dict({"Week" :[], "WeekRange" :[], "Net":[], "AvgNet":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[]})
     #tdict=dict({"Week" :[], "WeekRange" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[], "Ri/Re":[], "Exp$":[], "AWinP":[], "ALosP":[]})
 
     for year in range(start_year,end_year+1,1):
@@ -821,6 +821,7 @@ def get_weekly_result_df(ddf):
                     tdict['Losers'].append(losers)
                     tdict['Win%'].append(round((winners/trades)*100,2))
                     tdict['ActiveDays'].append(activedays)
+                    tdict['AvgNet'].append(round((net/activedays),2))
                     #tdict['Ri/Re'].append(round(arisk/areward,2))
                     #tdict["Exp$"].append(round(points/trades,2)*point_value)
                     #tdict["AWinP"].append(round(wpoints/winners,2))
@@ -846,7 +847,7 @@ def get_monthly_result_df(ddf):
     end_year=cnow.year
     end_month=cnow.month
     month_number=0
-    tdict=dict({"Month" :[], "MonthName" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[]})
+    tdict=dict({"Month" :[], "MonthName" :[], "Net":[], "AvgNet":[],"Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[]})
     #tdict=dict({"Month" :[], "MonthName" :[], "Net":[], "Trades":[], "Win%":[],"ActiveDays":[],"Winners":[], "Losers":[], "Ri/Re":[], "Exp$":[], "AWinP":[], "ALosP":[]})
 
     for year in range(start_year,end_year+1,1):
@@ -887,6 +888,7 @@ def get_monthly_result_df(ddf):
             tdict['Losers'].append(losers)
             tdict["ActiveDays"].append(count)
             tdict['Win%'].append(round((winners/trades)*100,2))
+            tdict['AvgNet'].append(round((net/count),2))
             #tdict['Ri/Re'].append(round(arisk/areward,2))
             #tdict["Exp$"].append(round(points/trades,2)*point_value)
             #tdict["AWinP"].append(round(wpoints/winners,2))
