@@ -897,6 +897,42 @@ def get_monthly_result_df(ddf):
     return rdf
 
 
+def get_progress_lines(df,frdf, ib):
+    lines_list=[]
+    line_color_dict={}
+    CurrentTarget=ib
+    running_balance=ib
+    number_of_days=df.shape[0]
+    tbal=frdf.iloc[0]["Net"]
+    ptfactor=int(((ib + tbal) // ib))
+    dict1=dict({"Day":[],"Initial":[], "Balance":[]})
+    
+    for i in range(1, ptfactor+1):
+        num=100*i
+        str1=str(num)+"%"
+        lines_list.append(str1)
+        line_color_dict[str1]="cyan"
+        dict1[str1]=[]
+    for i in range(number_of_days+2):
+        for j in range(1, ptfactor+1):
+            num=100*j
+            str1=str(num)+"%"
+            dict1[str1].append((j+1)*ib)
+    
+        dict1["Day"].append(i)
+        dict1["Initial"].append(float(ib))
+        if i==0:
+            dict1["Balance"].append(ib)
+        elif i >0 and i<=number_of_days:
+            running_balance+=float(df.iloc[i-1]["Net"])
+            dict1["Balance"].append(running_balance)
+        else:
+            dict1["Balance"].append(running_balance)
+    df1=pd.DataFrame(dict1)
+    return(df1, lines_list, line_color_dict)    
+
+
+
 def cuDB(ufiles, op):
     processed_dfs=list()
     for uploaded_file in ufiles:
@@ -1195,6 +1231,7 @@ def main():
         st.dataframe(pt.summary_df)
         st.dataframe(pt.summary_df_2)
         st.dataframe(pt.summary_df_3)
+        dfpg, lines_list, line_color_dict=get_progress_lines(pt.daily_df, pt.summary_df, datadict[st.session_state.selectedTarget].ib)
         #Plots
         st.subheader("Daily Plots")
 
@@ -1207,6 +1244,16 @@ def main():
         df2['PnL']=df2['CumNet']+datadict[st.session_state.selectedTarget].ib
         #st.dataframe(df2)
         fig_line(df2,["PnL"],"PnL")
+        ylist=lines_list+["Initial",  "Balance"]
+        line_color_dict.update({
+                              "Initial":"black",
+                              "Balance":"green"
+                          })
+        fig = px.line(dfpg, x='Day', y=ylist, markers=True,
+                          color_discrete_map=line_color_dict
+                          )
+        st.write(fig)
+
         df2['Color']=np.where(df2['Net']<0, "red", "green")
         fig_combo(df2)
         df2["ActiveDays"]=range(1,len(df2)+1)
