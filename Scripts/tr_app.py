@@ -1110,8 +1110,9 @@ def main():
     #Parse Targets File
     global datadict
     (targetkeys,datadict)=processTargetsFile()
-    st.session_state.selectedTarget=targetkeys[-1]
-    st.session_state.selectedJDB=targetkeys[-1]+".pickle"
+    #if st.session_state.selectedTarget ==  None:
+    #    st.session_state.selectedTarget=targetkeys[-1]
+    #st.session_state.selectedJDB=targetkeys[-1]+".pickle"
 
     #streamlit code
     cnow=datetime.datetime.now()   
@@ -1219,6 +1220,7 @@ def main():
                 st.dataframe(df[df['Symbol'].isin(symset)])  
     elif mode == "Daily":
         file=dbLocation+st.session_state.selectedJDB
+        print(file)
         if os.path.exists(file):
             full_df=pd.read_pickle(file)
         pt=ProcessTrades(full_df)

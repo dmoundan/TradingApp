@@ -18,6 +18,10 @@
 		{"Personal7182022" : {"IB": 3090.86, "NQFee":4.36, "MNQFee": 1.32, "TGT%":0.03,
 			"SY": 2022, "SM":7, "SD": 18,
 			"Exclusions":[]}
+		},
+		{"Personal8112022" : {"IB": 3104.40, "NQFee":4.36, "MNQFee": 1.32, "TGT%":0.03,
+			"SY": 2022, "SM":8, "SD": 11,
+			"Exclusions":[]}
 		}
 	          ]
 }	
