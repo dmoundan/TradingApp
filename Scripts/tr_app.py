@@ -819,9 +819,15 @@ def get_weekly_result_df(ddf):
                     tdict['Trades'].append(trades)
                     tdict['Winners'].append(winners)
                     tdict['Losers'].append(losers)
-                    tdict['Win%'].append(round((winners/trades)*100,2))
+                    if trades > 0:
+                        tdict['Win%'].append(round((winners/trades)*100,2))
+                    else:
+                        tdict['Win%'].append(0)
                     tdict['ActiveDays'].append(activedays)
-                    tdict['AvgNet'].append(round((net/activedays),2))
+                    if activedays > 0:   
+                        tdict['AvgNet'].append(round((net/activedays),2))
+                    else:
+                        tdict['AvgNet'].append(0)
                     #tdict['Ri/Re'].append(round(arisk/areward,2))
                     #tdict["Exp$"].append(round(points/trades,2)*point_value)
                     #tdict["AWinP"].append(round(wpoints/winners,2))
@@ -887,8 +893,14 @@ def get_monthly_result_df(ddf):
             tdict['Winners'].append(winners)
             tdict['Losers'].append(losers)
             tdict["ActiveDays"].append(count)
-            tdict['Win%'].append(round((winners/trades)*100,2))
-            tdict['AvgNet'].append(round((net/count),2))
+            if trades > 0 :
+                tdict['Win%'].append(round((winners/trades)*100,2))
+            else:
+                tdict['Win%'].append(0)
+            if count > 0:
+                tdict['AvgNet'].append(round((net/count),2))
+            else:
+                tdict['AvgNet'].append(0)
             #tdict['Ri/Re'].append(round(arisk/areward,2))
             #tdict["Exp$"].append(round(points/trades,2)*point_value)
             #tdict["AWinP"].append(round(wpoints/winners,2))
