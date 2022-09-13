@@ -965,6 +965,11 @@ def cuDB(ufiles, op):
         final_df.to_pickle(file)
 
 @st.cache
+def get_economic_picture():
+    df = pd.read_html("https://tradingeconomics.com/matrix")[0]
+    return(df)
+
+@st.cache
 def get_tradovate_futures_margins():
     futures_margins_url="https://www.tradovate.com/resources/markets/margin/?utm_campaign=pricing&utm_source=paidsearch&utm_medium=adwords&utm_content=textad&ads_cmpid=829315388&ads_adid=124817818990&ads_matchtype=e&ads_network=g&ads_creative=514632727397&utm_term=tradovate%20margin%20requirements&ads_targetid=kwd-1455151606552&utm_source=adwords&utm_medium=ppc&ttv=2&gclid=CjwKCAjw4qCKBhAVEiwAkTYsPM_5Qlb60sydGoWUHmyZtA-gWFotbYILJMLPXmorfA5qbcqO7CYYdxoCETwQAvD_BwE"
     options=Options()
@@ -1217,6 +1222,8 @@ def main():
 
         st.subheader("Tradovate Futures Margins")
         st.dataframe(get_tradovate_futures_margins())
+        st.subheader("Economic Picture")
+        st.dataframe(get_economic_picture())
         st.subheader("Earnings")
         if day_from == day_to:
             day_from_1=datetime.date.strftime(day_from,"%Y-%m-%d")
