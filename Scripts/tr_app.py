@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from tracemalloc import start
-from argon2 import PasswordHasher
+#from argon2 import PasswordHasher
 import streamlit as st
 import plotly.express as px 
 import plotly.graph_objects as go
@@ -137,7 +137,7 @@ class ProcessTrades:
         largest_winner=0
         largest_loser=0
         for row in self._full_df.itertuples(index=False):
-            if "MNQ" in row[6]:
+            if "MNQ" in row[6] or "MES" in row[6]:
                 fees+=tc.mnqf
             else:
                 fees+=tc.nqf    
@@ -147,8 +147,14 @@ class ProcessTrades:
             if row[1] == "Long":
                 if "MNQ" in row[6]:
                     net+=2.0*(row[3]-row[2])
-                else:
+                elif "MES" in row[6]:
+                    net+=5.0*(row[3]-row[2])
+                elif "NQ" in row[6]:
                     net+=20.0*(row[3]-row[2])
+                elif "ES" in row[6]:
+                    net+=50.0*(row[3]-row[2])
+                else:
+                    print("-E- Something wrong in value calculations")
                 longs+=1
                 points+= row[3]-row[2]
                 if row[3] > row[2]:
@@ -169,8 +175,14 @@ class ProcessTrades:
             else:
                 if "MNQ" in row[6]:
                     net+=2.0*(row[3]-row[2])
-                else:
+                elif "MES" in row[6]:
+                    net+=5.0*(row[3]-row[2])
+                elif "NQ" in row[6]:
                     net+=20.0*(row[3]-row[2])
+                elif "ES" in row[6]:
+                    net+=50.0*(row[3]-row[2])
+                else:
+                    print("-E- Something wrong in value calculations")
                 shorts+=1
                 points+= row[3]-row[2]
                 if row[3] > row[2]:
@@ -295,9 +307,17 @@ class ProcessTrades:
             if "MNQ" in row[6]:
                 point_value=2.0
                 fees+=tc.mnqf
-            else:
+            elif "MES" in row[6]:
+                point_value=5.0
+                fees+=tc.mnqf
+            elif "NQ" in row[6]:
                 point_value=20.0
                 fees+=tc.nqf
+            elif "ES" in row[6]:
+                point_value=50.0
+                fees+=tc.nqf
+            else:
+                print("-E- Something wrong in value calculations")
             contracts+=1
             st=self.__calctime(row[4])
             """
@@ -318,8 +338,14 @@ class ProcessTrades:
             if row[1] == "Long":
                 if "MNQ" in row[6]:
                     net+=2.0*(row[3]-row[2])
-                else:
+                elif "MES" in row[6]:
+                    net+=5.0*(row[3]-row[2])
+                elif "NQ" in row[6]:
                     net+=20.0*(row[3]-row[2])
+                elif "ES" in row[6]:
+                    net+=50.0*(row[3]-row[2])
+                else:
+                    print("-E- Something wrong in value calculations")
                 longs+=1
                 points+= row[3]-row[2]
                 if row[3] > row[2]:
@@ -340,8 +366,14 @@ class ProcessTrades:
             else:
                 if "MNQ" in row[6]:
                     net+=2.0*(row[3]-row[2])
-                else:
+                elif "MES" in row[6]:
+                    net+=5.0*(row[3]-row[2])
+                elif "NQ" in row[6]:
                     net+=20.0*(row[3]-row[2])
+                elif "ES" in row[6]:
+                    net+=50.0*(row[3]-row[2])
+                else:
+                    print("-E- Something wrong in value calculations")
                 shorts+=1
                 points+= row[3]-row[2]
                 if row[3] > row[2]:

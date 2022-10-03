@@ -30,6 +30,10 @@
 		{"ETF09062022" : {"IB": 150000.00, "NQFee":4.36, "MNQFee": 1.32, "TGT%":0.03,
 			"SY": 2022, "SM":9, "SD": 6,
 			"Exclusions":[]}
+		},
+		{"Personal10032022" : {"IB": 65.68, "NQFee":4.36, "MNQFee": 1.32, "TGT%":0.06,
+			"SY": 2022, "SM":10, "SD": 3,
+			"Exclusions":[]}
 		}
 	          ]
 }	
