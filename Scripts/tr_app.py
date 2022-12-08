@@ -714,7 +714,7 @@ def fill_missing_days(weeks, month, year):
                 continue
             else:
                 c2+=1
-    if c2 != 0:
+    if c2 != 0 :
         nday=1
         for i in weeks:
             if i!=0:
@@ -736,6 +736,37 @@ def fill_missing_days(weeks, month, year):
                     dt=f"{nyear}-0{nmonth}-{nday}"
                 nday+=1
                 rl.append(dt)
+    if c1 != 0 :
+        if month in set({1,3,5,7,8,10}):
+            nday=31
+        elif month in set({4,6,9,11}):
+            nday=30
+        else:
+            if year%4 ==0:
+                nday=29
+            else:
+                nday=28
+        for i in weeks:
+            if i!=0:
+                if month > 9:
+                    dt=f"{year}-{month}-{i}"
+                else:
+                    dt=f"{year}-0{month}-{i}"
+                rl.append(dt)
+            else:
+                if month <=12 and month > 1:
+                    nmonth=month-1
+                    nyear=year
+                else:
+                    nmonth=12
+                    nyear=year-1
+
+                if nmonth > 9:
+                    dt=f"{nyear}-{nmonth}-{nday}"
+                else:
+                    dt=f"{nyear}-0{nmonth}-{nday}"
+                nday-=1
+                rl.append(dt)            
     return rl
 
 def get_weekly_result_df(ddf):
@@ -778,7 +809,8 @@ def get_weekly_result_df(ddf):
                     fill_flag=False
                     #print("+++")
                     #print(weeks)
-                    continue
+                    #continue
+                    
                 lofdates=list()
                 if start_day in weeks:
                     flag = True
